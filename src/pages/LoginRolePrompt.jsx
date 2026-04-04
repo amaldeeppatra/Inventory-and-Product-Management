@@ -9,12 +9,16 @@ const LoginRolePrompt = () => {
   const token = query.get("token");
 
   const handleChoice = (selectedRole) => {
-    if (selectedRole === "CUSTOMER") {
-      navigate(`/homepage?token=${token}`);
-    } else if (selectedRole === "SELLER") {
-      navigate(`/seller/dashboard?token=${token}`);
-    } else if (selectedRole === "ADMIN") {
-      navigate(`/admin?token=${token}`);
+    if (token) {
+      if (selectedRole === "CUSTOMER") {
+        navigate(`/homepage?token=${token}`);
+      } else if (selectedRole === "SELLER") {
+        navigate(`/seller/dashboard?token=${token}`);
+      } else if (selectedRole === "ADMIN") {
+        navigate(`/admin?token=${token}`);
+      }
+    } else {
+      navigate(`/login?role=${selectedRole}`);
     }
   };
 
@@ -31,14 +35,14 @@ const LoginRolePrompt = () => {
       label: "Seller",
       icon: FaStore,
       description: "Manage your store",
-      show: role === "SELLER"
+      show: !role || role === "SELLER"
     },
     {
       key: "ADMIN",
       label: "Admin",
       icon: FaUserShield,
       description: "Access admin panel",
-      show: role === "ADMIN"
+      show: !role || role === "ADMIN"
     }
   ];
 

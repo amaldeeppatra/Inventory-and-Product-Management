@@ -156,7 +156,8 @@ const CartPage = () => {
           //   method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cartItems }),
           // });
           clearCart();
-          navigate('/order-success', { state: { orderNo: jsonRes.orderNo } });
+          const successUrl = `/order-success?orderNo=${encodeURIComponent(jsonRes.orderNo)}&shopId=${encodeURIComponent(selectedShop)}&total=${encodeURIComponent(total)}&items=${encodeURIComponent(cartItems.length)}`;
+          navigate(successUrl);
         } else { console.error("Payment validation failed!"); }
       },
       prefill: { name: userInfo?.user?.name, email: userInfo?.user?.email, contact: "9000090000" },

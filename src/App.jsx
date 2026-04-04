@@ -146,6 +146,10 @@ const appRouter = createBrowserRouter(
               // Path matches the NavLink in your Sidebar component
               path: "restock",
               element: <Restocks />
+            },
+            {
+              path: "order-success",
+              element: <OrderSuccess />
             }
           ]
         },

@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from '../components/seller/Sidebar';
@@ -38,8 +39,11 @@ const SellerPage = () => {
     }, [location, navigate]);
 
     const handleLogout = () => {
-        Cookies.remove('token');
+        Cookies.remove('token', { path: '/' });
+        Cookies.remove('auth_token', { path: '/' });
         localStorage.removeItem("selectedShop");
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('token');
         navigate('/login');
     };
     useEffect(() => {

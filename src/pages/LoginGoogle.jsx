@@ -1,6 +1,6 @@
 // src/components/LoginGoogle.jsx
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import logo from '../resources/logos/shreeannayojana.png';
 import CircularIndeterminate from '../components/atoms/CircularIndeterminate';
@@ -10,27 +10,17 @@ const API_URL = import.meta.env.VITE_API_URL;
 
 const LoginGoogle = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
+  const location = useLocation();
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  useEffect(() => {
-    // --- FIXED: Corrected the typo from API__URL to API_URL. ---
-    axios.get(`${API_URL}/auth/login/success`, { withCredentials: true })
-      .then(response => {
-        console.log('User is already authenticated:', response.data);
-        navigate('/homepage');
-      })
-      .catch(err => {
-        console.warn('User is not authenticated. Showing login page.');
-        setLoading(false); // Stop loading to display the login page.
-      });
-  }, [navigate]);
 
   const handleGoogleSignIn = () => {
     setError(null);
     try {
-      // Initiate the OAuth flow by redirecting to your backend's Google auth endpoint.
-      window.location.href = `${API_URL}/auth/google`;
+      const queryParams = new URLSearchParams(location.search);
+      const role = queryParams.get('role');
+      const authUrl = role ? `${API_URL}/auth/google?role=${encodeURIComponent(role)}` : `${API_URL}/auth/google`;
+      window.location.href = authUrl;
     } catch (err) {
       console.error('Error initiating Google Sign-In:', err);
       setError('Sign-In failed. Please check your connection and try again.');

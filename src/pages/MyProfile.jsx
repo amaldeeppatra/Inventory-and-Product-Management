@@ -75,8 +75,11 @@ const MyProfile = () => {
   }, [userInfo, activeTab]);
 
   const handleLogout = () => {
-    Cookies.remove('token');
-    localStorage.removeItem("selectedShop");
+    Cookies.remove('token', { path: '/' });
+    Cookies.remove('auth_token', { path: '/' });
+    localStorage.removeItem('selectedShop');
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('token');
     navigate('/login');
   };
 

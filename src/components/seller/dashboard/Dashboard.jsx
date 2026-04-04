@@ -1,90 +1,129 @@
+/* eslint-disable react/no-unescaped-entities */
+/* eslint-disable react/prop-types */
+/* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { TrendingUp, TrendingDown, ShoppingCart, Users, Package, DollarSign, Activity, Clock, Tag } from 'lucide-react';
+import Cookies from 'js-cookie';
+import ParseJwt from '../../../utils/ParseJWT';
 
 // API Configuration - Replace with your actual backend URL
 const API_BASE = import.meta.env.VITE_API_URL;
 
+const getAuthToken = () => {
+  return localStorage.getItem('token') || Cookies.get('token') || Cookies.get('auth_token') || localStorage.getItem('auth_token');
+};
+
+const getShopId = () => {
+  const selectedShop = localStorage.getItem('selectedShop');
+  if (selectedShop) return selectedShop;
+
+  const token = getAuthToken();
+  if (!token) return null;
+
+  const decoded = ParseJwt(token);
+  return decoded?.user?.shopId || null;
+};
+
+const buildHeaders = () => {
+  const token = getAuthToken();
+  const headers = {
+    'Content-Type': 'application/json'
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+};
+
+const buildUrl = (path, params = {}) => {
+  const url = new URL(`${API_BASE}${path}`);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      url.searchParams.append(key, value);
+    }
+  });
+  return url.toString();
+};
+
 // API service with actual endpoints
 const api = {
   getDashboardStats: async () => {
-    const shopId = localStorage.getItem("selectedShop");
-    const response = await fetch(`${API_BASE}/analytics/dashboard?shopId=${shopId}`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`, // Add auth if needed
-        'Content-Type': 'application/json'
-      }
+    const shopId = getShopId();
+    const url = buildUrl('/analytics/dashboard', { shopId, includeKiosk: true });
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+      headers: buildHeaders()
     });
     if (!response.ok) throw new Error('Failed to fetch dashboard stats');
     return response.json();
   },
   
   getRevenueTrend: async (days = 7) => {
-    const shopId = localStorage.getItem("selectedShop");
-    const response = await fetch(`${API_BASE}/analytics/revenue-trend?days=${days}&shopId=${shopId}`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json'
-      }
+    const shopId = getShopId();
+    const url = buildUrl('/analytics/revenue-trend', { days, shopId, includeKiosk: true });
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+      headers: buildHeaders()
     });
     if (!response.ok) throw new Error('Failed to fetch revenue trend');
     return response.json();
   },
   
   getBestSellingProducts: async (limit = 5) => {
-    const shopId = localStorage.getItem("selectedShop");
-    const response = await fetch(`${API_BASE}/analytics/products/best-selling?limit=${limit}&shopId=${shopId}`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json'
-      }
+    const shopId = getShopId();
+    const url = buildUrl('/analytics/products/best-selling', { limit, shopId, includeKiosk: true });
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+      headers: buildHeaders()
     });
     if (!response.ok) throw new Error('Failed to fetch best selling products');
     return response.json();
   },
   
   getLeastSellingProducts: async (limit = 5) => {
-    const shopId = localStorage.getItem("selectedShop");
-    const response = await fetch(`${API_BASE}/analytics/products/least-selling?limit=${limit}&shopId=${shopId}`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json'
-      }
+    const shopId = getShopId();
+    const url = buildUrl('/analytics/products/least-selling', { limit, shopId, includeKiosk: true });
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+      headers: buildHeaders()
     });
     if (!response.ok) throw new Error('Failed to fetch least selling products');
     return response.json();
   },
   
   getOperationalFunnel: async () => {
-    const shopId = localStorage.getItem("selectedShop");
-    const response = await fetch(`${API_BASE}/analytics/operational-funnel?shopId=${shopId}`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json'
-      }
+    const shopId = getShopId();
+    const url = buildUrl('/analytics/operational-funnel', { shopId, includeKiosk: true });
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+      headers: buildHeaders()
     });
     if (!response.ok) throw new Error('Failed to fetch operational funnel');
     return response.json();
   },
 
   getCategoryPerformance: async () => {
-    const shopId = localStorage.getItem("selectedShop");
-    const response = await fetch(`${API_BASE}/analytics/products/category-performance?shopId=${shopId}`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json'
-      }
+    const shopId = getShopId();
+    const url = buildUrl('/analytics/products/category-performance', { shopId, includeKiosk: true });
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+      headers: buildHeaders()
     });
     if (!response.ok) throw new Error('Failed to fetch category performance');
     return response.json();
   },
 
   getUserAnalytics: async () => {
-    const response = await fetch(`${API_BASE}/analytics/users/analytics`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json'
-      }
+    const url = buildUrl('/analytics/users/analytics');
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+      headers: buildHeaders()
     });
     if (!response.ok) throw new Error('Failed to fetch user analytics');
     return response.json();

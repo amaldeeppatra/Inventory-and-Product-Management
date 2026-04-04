@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FaChevronLeft } from 'react-icons/fa';
@@ -16,99 +17,116 @@ const OrderSuccess = () => {
   const [loading, setLoading] = useState(true);
   const [orderDetails, setOrderDetails] = useState(null);
   const [userInfo, setUserInfo] = useState(null);
-  
-  // Fetch order details
+
   useEffect(() => {
-  const fetchOrderDetails = async () => {
-    try {
-      const token = Cookies.get("token");
-      if (!token) return;
+    const fetchOrderDetails = async () => {
+      setLoading(true);
 
-      const decoded = ParseJwt(token);
-      setUserInfo(decoded);
+      const query = new URLSearchParams(location.search);
+      const stateOrderNo = location.state?.orderNo;
+      const stateTotal = location.state?.total;
+      const statePayment = location.state?.paymentMethod;
+      const stateCustomerName = location.state?.customerName;
+      const stateShopId = location.state?.shopId || query.get('shopId');
+      const stateItems = (location.state?.items ?? parseInt(query.get('items'), 10)) || 0;
+      const queryTotal = query.get('total');
+      const orderNo = stateOrderNo || query.get('orderNo');
+      const total = stateTotal ?? (queryTotal ? parseFloat(queryTotal) : undefined);
+      const selectedShop = localStorage.getItem('selectedShop') || stateShopId;
+      const isSellerFlow = location.pathname.includes('/seller/') || statePayment !== undefined || stateCustomerName !== undefined;
+      const token = Cookies.get('token');
 
-      // Get orderNo passed from previous page
-      const orderNo = location.state?.orderNo;
-      const selectedShop = localStorage.getItem("selectedShop");
-
-      if (orderNo) {
+      if (token) {
         try {
-          const response = await axios.get(
-            `${API_URL}/order/${selectedShop}/${orderNo}`,
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            }
-          );
-
-          const orderData = response.data.order;
-
-          setOrderDetails({
-            orderNo: orderData.orderNo,
-            date: new Date(orderData.createdAt).toLocaleString(),
-            items: orderData.items.length,
-            total: parseFloat(
-              orderData.totalPrice?.$numberDecimal || orderData.totalPrice
-            ),
-            products: orderData.items,
-          });
+          const decoded = ParseJwt(token);
+          setUserInfo(decoded);
         } catch (err) {
-          console.error("Error fetching order by orderNo:", err);
+          console.warn('Invalid token, continuing with fallback order details', err);
+        }
+      }
 
-          // FALLBACK in case API fails
-          const cartItems =
-            JSON.parse(localStorage.getItem("cartItems")) || [];
+      const buildFallbackOrder = () => {
+        const cartItems = JSON.parse(localStorage.getItem('cartItems')) || [];
+        return {
+          orderNo: orderNo || 'N/A',
+          date: new Date().toLocaleString(),
+          items: stateItems || cartItems.length,
+          total: total ?? cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
+          products: cartItems,
+          paymentMethod: isSellerFlow ? (statePayment || 'CASH') : undefined,
+          customerName: stateCustomerName || (isSellerFlow ? 'Walk-in Customer' : undefined),
+        };
+      };
+
+      try {
+        if (isSellerFlow) {
+          if (orderNo && selectedShop) {
+            try {
+              const response = await axios.get(
+                `${API_URL}/seller/order/detail/${selectedShop}/${orderNo}`,
+                token ? { headers: { Authorization: `Bearer ${token}` } } : {}
+              );
+              const order = response.data?.order;
+              if (order) {
+                setOrderDetails({
+                  orderNo: order.orderNo,
+                  date: new Date(order.createdAt).toLocaleString('en-IN', { dateStyle:'medium', timeStyle:'short' }),
+                  items: order.items?.length || 0,
+                  total: parseFloat(order.totalPrice?.$numberDecimal ?? order.totalPrice ?? 0),
+                  products: order.items || [],
+                  paymentMethod: order.payementMethod || statePayment || 'CASH',
+                  customerName: order.userId?.name || stateCustomerName || 'Walk-in Customer',
+                });
+                return;
+              }
+            } catch (err) {
+              console.error('Seller order fetch failed, falling back to state:', err);
+            }
+          }
 
           setOrderDetails({
-            orderNo: "N/A",
-            date: new Date().toLocaleString(),
-            items: cartItems.length,
-            total: cartItems.reduce(
-              (sum, item) => sum + item.price * item.quantity,
-              0
-            ),
-            products: cartItems,
+            orderNo: orderNo || 'N/A',
+            date: new Date().toLocaleString('en-IN', { dateStyle:'medium', timeStyle:'short' }),
+            items: stateItems || '—',
+            total: total ?? 0,
+            products: [],
+            paymentMethod: (statePayment || 'cash').toUpperCase(),
+            customerName: stateCustomerName || 'Walk-in Customer',
           });
+          return;
         }
-      } else {
-        // If no orderNo available
-        const cartItems =
-          JSON.parse(localStorage.getItem("cartItems")) || [];
 
-        setOrderDetails({
-          orderNo: "N/A",
-          date: new Date().toLocaleString(),
-          items: cartItems.length,
-          total: cartItems.reduce(
-            (sum, item) => sum + item.price * item.quantity,
-            0
-          ),
-          products: cartItems,
-        });
+        if (orderNo && selectedShop && token) {
+          try {
+            const response = await axios.get(
+              `${API_URL}/order/${selectedShop}/${orderNo}`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            const orderData = response.data.order;
+            setOrderDetails({
+              orderNo: orderData.orderNo,
+              date: new Date(orderData.createdAt).toLocaleString(),
+              items: orderData.items.length,
+              total: parseFloat(orderData.totalPrice?.$numberDecimal || orderData.totalPrice),
+              products: orderData.items,
+            });
+            return;
+          } catch (err) {
+            console.error('Customer order fetch failed, falling back to query/local state:', err);
+          }
+        }
+
+        setOrderDetails(buildFallbackOrder());
+      } catch (error) {
+        console.error('Error resolving order success details:', error);
+        setOrderDetails(buildFallbackOrder());
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error fetching order details:", error);
+    };
 
-      const cartItems =
-        JSON.parse(localStorage.getItem("cartItems")) || [];
-
-      setOrderDetails({
-        orderNo: "N/A",
-        date: new Date().toLocaleString(),
-        items: cartItems.length,
-        total: cartItems.reduce(
-          (sum, item) => sum + item.price * item.quantity,
-          0
-        ),
-        products: cartItems,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  fetchOrderDetails();
-}, [location]);
-
+    fetchOrderDetails();
+  }, [location]);
 
   if (loading) {
     return (
