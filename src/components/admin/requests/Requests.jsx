@@ -38,7 +38,12 @@ export default function Requests() {
       setPendingRequests(pending);
       setRequestHistory(history);
 
-      const sellerIds = [...new Set(data.requests?.map((req) => req.sellerId))];
+      const sellerIds = [...new Set(
+        data.requests?.map((req) => {
+          if (!req.sellerId) return null;
+          return typeof req.sellerId === 'string' ? req.sellerId : req.sellerId._id;
+        }).filter(Boolean)
+      )];
       await fetchSellerDetails(sellerIds);
     } catch (err) {
       console.error('Error fetching requests:', err);
@@ -56,9 +61,7 @@ export default function Requests() {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
           },
         });
-        // console.log('Seller details response:', response);
         details[sellerId] = response.data;
-        console.log('Fetched seller details:', details);
       }
       setSellerDetails(details);
     } catch (err) {
@@ -88,9 +91,13 @@ export default function Requests() {
     setSuccess('');
 
     try {
+      const payload = selectedRequest.requestType === 'add_product' 
+        ? { initialStock: selectedRequest.initialStock || 0 } 
+        : { quantity: selectedRequest.quantity };
+
       const response = await axios.patch(
         `${API_URL}/request/requests/${selectedRequest._id}/accept`,
-        { quantity: selectedRequest.quantity },
+        payload,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -98,7 +105,10 @@ export default function Requests() {
         }
       );
 
-      setSuccess('Request accepted and stock updated successfully');
+      setSuccess(selectedRequest.requestType === 'add_product' 
+        ? 'Product added to shop inventory successfully' 
+        : 'Request accepted and stock updated successfully'
+      );
       setTimeout(() => {
         closeModal();
         fetchRequests();
@@ -142,13 +152,28 @@ export default function Requests() {
     }
   };
 
-  const getSellerName = (sellerId) => {
-    return sellerDetails[sellerId]?.name || 'Loading...';
+  const getSellerName = (request) => {
+    if (!request) return 'Unknown seller';
+    if (request.sellerId && typeof request.sellerId !== 'string') {
+      return request.sellerId.name || 'Unknown seller';
+    }
+    return sellerDetails[request.sellerId]?.name || 'Loading...';
   };
 
-  const getSellerInitial = (sellerId) => {
-    const name = sellerDetails[sellerId]?.name;
+  const getSellerInitial = (request) => {
+    const name =
+      request?.sellerId && typeof request.sellerId !== 'string'
+        ? request.sellerId.name
+        : sellerDetails[request?.sellerId]?.name;
     return name ? name.charAt(0).toUpperCase() : 'S';
+  };
+
+  const getShopName = (request) => {
+    if (!request) return 'Unknown shop';
+    if (request.shopId && typeof request.shopId !== 'string') {
+      return request.shopId.name || request.shopId.shopName || 'Unknown shop';
+    }
+    return 'Unknown shop';
   };
 
   return (
@@ -183,18 +208,25 @@ export default function Requests() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4 flex-1">
                           <div className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center text-white font-semibold">
-                            {getSellerInitial(request.sellerId)}
+                            {getSellerInitial(request)}
                           </div>
                           <div className="flex-1">
                             <p className="font-medium text-gray-800">
-                              {getSellerName(request.sellerId)}
+                              {getSellerName(request)}
                             </p>
                             <p className="text-sm text-gray-500">
-                              {request.prodId.prodName} - {request.quantity} units
+                              {request.prodId.prodName} - {request.requestType === 'add_product' ? 'Add to inventory' : `${request.quantity} units`}
                             </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
+                          <span className={`text-xs px-3 py-1 rounded-full font-medium ${
+                            request.requestType === 'add_product' 
+                              ? 'bg-blue-100 text-blue-700' 
+                              : 'bg-orange-100 text-orange-700'
+                          }`}>
+                            {request.requestType === 'add_product' ? 'Add Product' : 'Restock'}
+                          </span>
                           <span className="text-xs bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full font-medium">
                             Pending
                           </span>
@@ -238,18 +270,25 @@ export default function Requests() {
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold ${
                             request.status === 'accepted' ? 'bg-green-500' : 'bg-red-500'
                           }`}>
-                            {getSellerInitial(request.sellerId)}
+                            {getSellerInitial(request)}
                           </div>
                           <div className="flex-1">
                             <p className="font-medium text-gray-800">
-                              {getSellerName(request.sellerId)}
+                              {getSellerName(request)}
                             </p>
                             <p className="text-sm text-gray-500">
-                              {request.prodId.prodName} - {request.quantity} units
+                              {request.prodId.prodName} - {request.requestType === 'add_product' ? 'Add to inventory' : `${request.quantity} units`}
                             </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
+                          <span className={`text-xs px-3 py-1 rounded-full font-medium ${
+                            request.requestType === 'add_product' 
+                              ? 'bg-blue-100 text-blue-700' 
+                              : 'bg-orange-100 text-orange-700'
+                          }`}>
+                            {request.requestType === 'add_product' ? 'Add Product' : 'Restock'}
+                          </span>
                           <span className={`text-xs px-3 py-1 rounded-full font-medium ${
                             request.status === 'accepted' 
                               ? 'bg-green-100 text-green-700' 
@@ -319,12 +358,12 @@ export default function Requests() {
                 <div className="bg-accent rounded-lg p-4">
                   <p className="text-sm text-gray-600 mb-1">Seller Name</p>
                   <p className="font-semibold text-gray-800">
-                    {getSellerName(selectedRequest.sellerId)}
+                    {getSellerName(selectedRequest)}
                   </p>
                 </div>
                 <div className="bg-accent rounded-lg p-4">
                   <p className="text-sm text-gray-600 mb-1">Shop Name</p>
-                  <p className="font-semibold text-gray-800">{selectedRequest.shopId?.name}</p>
+                  <p className="font-semibold text-gray-800">{getShopName(selectedRequest)}</p>
                 </div>
               </div>
 
@@ -346,10 +385,30 @@ export default function Requests() {
                   <p className="font-semibold text-gray-800">{selectedRequest.prodId.category}</p>
                 </div>
                 <div className="bg-accent rounded-lg p-4">
-                  <p className="text-sm text-gray-600 mb-1">Quantity</p>
-                  <p className="font-semibold text-gray-800">{selectedRequest.quantity} units</p>
+                  <p className="text-sm text-gray-600 mb-1">Request Type</p>
+                  <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                    selectedRequest.requestType === 'add_product' 
+                      ? 'bg-blue-100 text-blue-700' 
+                      : 'bg-orange-100 text-orange-700'
+                  }`}>
+                    {selectedRequest.requestType === 'add_product' ? 'Add Product' : 'Restock'}
+                  </span>
                 </div>
               </div>
+
+              {selectedRequest.requestType === 'restock' && (
+                <div className="bg-accent rounded-lg p-4 mb-6">
+                  <p className="text-sm text-gray-600 mb-1">Requested Quantity</p>
+                  <p className="font-semibold text-gray-800">{selectedRequest.quantity} units</p>
+                </div>
+              )}
+
+              {selectedRequest.requestType === 'add_product' && selectedRequest.initialStock && (
+                <div className="bg-accent rounded-lg p-4 mb-6">
+                  <p className="text-sm text-gray-600 mb-1">Requested Initial Stock</p>
+                  <p className="font-semibold text-gray-800">{selectedRequest.initialStock} units</p>
+                </div>
+              )}
 
               {/* Message */}
               {selectedRequest.message && (

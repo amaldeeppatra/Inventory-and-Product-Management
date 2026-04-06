@@ -26,6 +26,7 @@ import Restocks from './components/seller/restocks/Restocks'
 import Products from './components/admin/products/Products'
 import Sellers from './components/admin/sellers/Sellers'
 import Requests from './components/admin/requests/Requests'
+import Shops from './components/admin/shops/Shops'
 import Billing from './components/seller/billing/Billing'
 
 const App = () => {
@@ -175,6 +176,10 @@ const appRouter = createBrowserRouter(
             {
               path: "requests",
               element: <Requests />
+            },
+            {
+              path: "shops",
+              element: <Shops />
             },
           ]
 

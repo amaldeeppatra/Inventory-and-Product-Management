@@ -68,7 +68,8 @@ const Restocks = () => {
             const response = await axios.get(`${API_URL}/request/getAllRequests/${sellerId}`);
             console.log("Fetched restock requests:", response.data.requests);
             const data = response.data.requests || [];
-            setRestockRequests(data);
+            const restockOnly = data.filter(request => request.requestType === 'restock');
+            setRestockRequests(restockOnly);
         } catch (err) {
             console.error("Failed to fetch restock requests:", err);
             setError("Could not load restock data. Please try again.");

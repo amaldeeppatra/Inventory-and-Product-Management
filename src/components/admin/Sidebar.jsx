@@ -1,7 +1,7 @@
 import React from 'react';
 // Step 1: Import NavLink instead of using local state
 import { NavLink } from 'react-router-dom'; 
-import { FiClock, FiBox, FiRepeat } from "react-icons/fi";
+import { FiClock, FiBox, FiRepeat, FiHome } from "react-icons/fi";
 import logo from '../../resources/homepage/ShreeAnnaAbhiyanLogo.png';
 import { RxDashboard } from "react-icons/rx";
 
@@ -13,7 +13,8 @@ const Sidebar = () => {
     const navItems = [
         { name: 'Products', icon: <RxDashboard />, path: '/admin/products' },
         { name: 'Sellers', icon: <FiClock />, path: '/admin/sellers' },
-        { name: 'Requests', icon: <FiBox />, path: '/admin/requests' }
+        { name: 'Requests', icon: <FiBox />, path: '/admin/requests' },
+        { name: 'Shops', icon: <FiHome />, path: '/admin/shops' }
     ];
 
     return (

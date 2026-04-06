@@ -23,6 +23,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import QRCode from 'qrcode';
+import Modal from '../../Modal';
 import {
   FiSearch, FiX, FiShoppingCart, FiCheck, FiTrash2, FiPrinter,
 } from 'react-icons/fi';
@@ -481,6 +482,7 @@ const SellerKiosk = () => {
   const [pendingPayment, setPendingPayment] = useState(null);
   const [orderSuccessData, setOrderSuccessData] = useState(null);
   const [cartOpen, setCartOpen] = useState(false);
+  const [modal, setModal] = useState({ isOpen: false, type: '', title: '', message: '' });
 
   const shopId = localStorage.getItem('selectedShop');
 
@@ -489,18 +491,35 @@ const SellerKiosk = () => {
 
   useEffect(() => {
     (async () => {
+      if (!shopId) {
+        setModal({ isOpen: true, type: 'error', title: 'Shop Not Selected', message: 'Please select a shop first.' });
+        return;
+      }
+      
       setLoadingProducts(true);
       try {
-        const res = await axios.get(`${API_URL}/products`);
-        const data = res.data.products || res.data || [];
-        setProducts(data.map((p) => ({ ...p, prodId: p.prodId || p._id, price: getPrice(p) })));
+        const res = await axios.get(`${API_URL}/inventory/${shopId}/all`, {
+          headers: buildAuthHeaders()
+        });
+        const inventoryItems = res.data || [];
+        
+        // Transform inventory items to product format with stock information
+        const productsWithStock = inventoryItems.map((item) => ({
+          ...item.productId,
+          prodId: item.productId.prodId,
+          stock: item.onHand,
+          price: getPrice(item.productId)
+        })).filter(item => item.stock > 0); // Only show products with stock > 0
+        
+        setProducts(productsWithStock);
       } catch (e) {
-        console.error('Products fetch failed:', e);
+        console.error('Inventory fetch failed:', e);
+        setModal({ isOpen: true, type: 'error', title: 'Error', message: 'Failed to load shop inventory. Please try again.' });
       } finally {
         setLoadingProducts(false);
       }
     })();
-  }, []);
+  }, [shopId]);
 
   const filteredProducts = useMemo(
     () => products.filter((p) =>
@@ -514,13 +533,22 @@ const SellerKiosk = () => {
   const findCartItem = useCallback((p) => cartItems.find((i) => getProductId(i) === getProductId(p)), [cartItems]);
 
   const handleAdd = useCallback(async (product) => {
-    if (!shopId) return alert('No shop selected.');
+    if (!shopId) {
+      setModal({ isOpen: true, type: 'error', title: 'Shop Not Selected', message: 'Please select a shop first.' });
+      return;
+    }
     const stock = await checkStock(product.prodId);
-    if (!stock) return alert(`${product.prodName} is out of stock.`);
+    if (!stock) {
+      setModal({ isOpen: true, type: 'error', title: 'Out of Stock', message: `${product.prodName} is out of stock.` });
+      return;
+    }
     setCartItems((prev) => {
       const ex = prev.find((i) => getProductId(i) === getProductId(product));
       if (ex) {
-        if (ex.quantity >= stock) { alert(`Only ${stock} in stock.`); return prev; }
+        if (ex.quantity >= stock) { 
+          setModal({ isOpen: true, type: 'error', title: 'Stock Limit', message: `Only ${stock} in stock.` });
+          return prev; 
+        }
         return prev.map((i) => getProductId(i) === getProductId(product) ? { ...i, quantity: i.quantity + 1 } : i);
       }
       return [...prev, { prodId: getProductId(product), prodImg: product.prodImg, prodName: product.prodName, price: product.price, quantity: 1 }];
@@ -531,7 +559,10 @@ const SellerKiosk = () => {
     const stock = await checkStock(getProductId(product));
     if (!stock) return;
     const cur = findCartItem(product)?.quantity || 0;
-    if (cur + 1 > stock) return alert(`Only ${stock} in stock.`);
+    if (cur + 1 > stock) {
+      setModal({ isOpen: true, type: 'error', title: 'Stock Limit', message: `Only ${stock} in stock.` });
+      return;
+    }
     setCartItems((prev) => prev.map((i) => getProductId(i) === getProductId(product) ? { ...i, quantity: i.quantity + 1 } : i));
   }, [findCartItem]);
 
@@ -548,9 +579,11 @@ const SellerKiosk = () => {
 
   const handleClearCart = useCallback(() => {
     setCartItems([]);
-    sessionStorage.removeItem('sellerKioskCart');
-    refreshTxnRef();
   }, []);
+
+  const handleCloseModal = () => {
+    setModal({ isOpen: false, type: '', title: '', message: '' });
+  };
 
   const recordOrder = useCallback(async ({
     customerName, paymentMethod, paymentRef, cashTendered, changeReturned,
@@ -612,11 +645,11 @@ const SellerKiosk = () => {
         setCartOpen(false);
         refreshTxnRef();
       } else {
-        alert('Could not record order. Please retry.');
+        setModal({ isOpen: true, type: 'error', title: 'Order Failed', message: 'Could not record order. Please retry.' });
       }
     } catch (e) {
       console.error(e);
-      alert('Something went wrong. Please retry.');
+      setModal({ isOpen: true, type: 'error', title: 'Error', message: 'Something went wrong. Please retry.' });
     } finally {
       setConfirming(false);
     }
@@ -648,11 +681,11 @@ const SellerKiosk = () => {
         setCartOpen(false);
         refreshTxnRef();
       } else {
-        alert('Could not record order. Please retry.');
+        setModal({ isOpen: true, type: 'error', title: 'Order Failed', message: 'Could not record order. Please retry.' });
       }
     } catch (e) {
       console.error(e);
-      alert('Something went wrong. Please retry.');
+      setModal({ isOpen: true, type: 'error', title: 'Error', message: 'Something went wrong. Please retry.' });
     } finally {
       setConfirming(false);
     }
@@ -845,6 +878,25 @@ const SellerKiosk = () => {
           }}
         />
       )}
+
+      <Modal
+        isOpen={modal.isOpen}
+        onClose={handleCloseModal}
+        title={modal.title}
+        size="sm"
+      >
+        <div className="p-4">
+          <p className="text-gray-700 mb-6">{modal.message}</p>
+          <div className="flex justify-end">
+            <button
+              onClick={handleCloseModal}
+              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition-colors"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

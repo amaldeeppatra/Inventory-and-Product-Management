@@ -3,9 +3,11 @@ import axios from 'axios';
 import { FiSearch, FiFilter, FiDownload, FiEdit, FiTrash2, FiX } from 'react-icons/fi';
 import Table from '../../Table';
 import Pagination from '../../Pagination';
+import Modal from '../../Modal';
 import Skeleton from '@mui/material/Skeleton';
 import Cookies from 'js-cookie';
 import ParseJwt from '../../../utils/ParseJWT';
+import Tabs from '../orders/Tabs';
 
 const API_URL = import.meta.env.VITE_API_URL;
 const ITEMS_PER_PAGE = 8;
@@ -42,6 +44,14 @@ const Inventory = () => {
     const [sellerId, setSellerId] = useState(null);
     const [quantity, setQuantity] = useState({});
     const [requestStatus, setRequestStatus] = useState({});
+
+    // Tabs state
+    const [activeTab, setActiveTab] = useState('inventory');
+
+    const tabs = [
+        { name: 'Current Inventory', key: 'inventory' },
+        { name: 'Request New Product', key: 'request' },
+    ];
 
     // Filter states
     const [showFilterPanel, setShowFilterPanel] = useState(false);
@@ -127,6 +137,15 @@ const Inventory = () => {
 
     const sendRequest = async (prodId) => {
         const shopId = localStorage.getItem("selectedShop");
+        const token = Cookies.get('token');
+        if (!sellerId) {
+            console.error('Seller ID missing for request');
+            setRequestStatus(prev => ({
+                ...prev,
+                [prodId]: 'error'
+            }));
+            return;
+        }
         try {
             setRequestStatus(prev => ({
                 ...prev,
@@ -138,6 +157,8 @@ const Inventory = () => {
                 shopId,
                 message: message[prodId] || '',
                 quantity: parseInt(quantity[prodId]) || 1
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
             });
 
             setRequestStatus(prev => ({
@@ -450,53 +471,63 @@ const Inventory = () => {
     }, [processedData, currentPage]);
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4 px-3 bg-background">
             <div>
+                <p className="text-sm text-text-light">Dashboard ▸ Inventory</p>
                 <h1 className="text-3xl font-bold text-text-dark mt-1">Inventory</h1>
             </div>
 
-            <div className="flex justify-between items-center">
-                <div className="relative w-1/3">
-                    <FiSearch className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400" />
-                    <input
-                        type="text"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Search for id, name, product"
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                </div>
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => setShowFilterPanel(!showFilterPanel)}
-                        className={`flex items-center gap-2 px-4 py-2 border rounded-lg text-sm font-semibold hover:bg-gray-50 ${hasActiveFilters() ? 'bg-blue-50 border-blue-500 text-blue-700' : ''}`}
-                    >
-                        <FiFilter />
-                        Filter
-                        {hasActiveFilters() && (
-                            <span className="bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
-                                {[
-                                    filters.selectedCategories.length,
-                                    filters.selectedStatuses.length,
-                                    filters.stockMin || filters.stockMax ? 1 : 0
-                                ].reduce((a, b) => a + b, 0)}
-                            </span>
-                        )}
-                    </button>
-                    <button
-                        onClick={handleExport}
-                        className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-semibold hover:bg-gray-50"
-                    >
-                        <FiDownload /> Export
-                    </button>
-                </div>
+            {/* Tabs for Inventory and Request New Product */}
+            <div className="rounded-xl mt-4">
+                <Tabs tabs={tabs} activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab)} />
             </div>
 
-            {/* Filter Panel */}
-            {showFilterPanel && (
-                <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-semibold text-gray-800">Filters</h3>
+            {/* Content area with proper spacing */}
+            <div className="mt-6">
+                {activeTab === 'inventory' ? (
+                    <>
+                        <div className="flex justify-between items-center mb-3">
+                            <div className="relative w-1/3">
+                                <FiSearch className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400" />
+                                <input
+                                    type="text"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    placeholder="Search for id, name, product"
+                                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setShowFilterPanel(!showFilterPanel)}
+                                    className={`flex items-center gap-2 px-4 py-2 border rounded-lg text-sm font-semibold hover:bg-gray-50 ${hasActiveFilters() ? 'bg-blue-50 border-blue-500 text-blue-700' : ''}`}
+                                >
+                                    <FiFilter />
+                                    Filter
+                                    {hasActiveFilters() && (
+                                        <span className="bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                                            {[
+                                                filters.selectedCategories.length,
+                                                filters.selectedStatuses.length,
+                                                filters.stockMin || filters.stockMax ? 1 : 0
+                                            ].reduce((a, b) => a + b, 0)}
+                                        </span>
+                                    )}
+                                </button>
+                                <button
+                                    onClick={handleExport}
+                                    className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-semibold hover:bg-gray-50"
+                                >
+                                    <FiDownload /> Export
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Filter Panel */}
+                        {showFilterPanel && (
+                            <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="text-lg font-semibold text-gray-800">Filters</h3>
                         <div className="flex gap-2">
                             {hasActiveFilters() && (
                                 <button
@@ -607,6 +638,240 @@ const Inventory = () => {
                     />
                 )}
             </div>
+        </>
+                ) : (
+                    <RequestNewProduct />
+                )}
+            </div>
+        </div>
+    );
+};
+
+const RequestNewProduct = () => {
+    const [allProducts, setAllProducts] = useState([]);
+    const [inventoryProducts, setInventoryProducts] = useState([]);
+    const [availableProducts, setAvailableProducts] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [serverMessage, setServerMessage] = useState({ type: '', content: '' });
+    const [sellerId, setSellerId] = useState(null);
+    const [modal, setModal] = useState({ isOpen: false, type: '', data: null });
+
+    useEffect(() => {
+        const token = Cookies.get('token');
+        if (token) {
+            const decoded = ParseJwt(token);
+            const idFromToken = decoded?.user?._id || decoded?.user?.id || decoded?.id;
+            setSellerId(idFromToken);
+        }
+        fetchData();
+    }, []);
+
+    const fetchData = async () => {
+        try {
+            setLoading(true);
+            const shopId = localStorage.getItem("selectedShop");
+
+            // Fetch all products from global catalog
+            const productsResponse = await axios.get(`${API_URL}/products`);
+            const allProds = (productsResponse.data.products || productsResponse.data || []).map(product => ({
+                ...product,
+                price: product.price?.$numberDecimal ? parseFloat(product.price.$numberDecimal) : parseFloat(product.price) || 0
+            }));
+
+            const token = Cookies.get('token');
+            // Fetch current inventory
+            const inventoryResponse = await axios.get(`${API_URL}/inventory/${shopId}/all`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const inventoryProds = inventoryResponse.data || [];
+
+            setAllProducts(allProds);
+            setInventoryProducts(inventoryProds);
+
+            // Filter out products already in inventory
+            const inventoryProdIds = new Set(inventoryProds.map(item => item.productId?.prodId || item.prodId));
+            const available = allProds.filter(product => !inventoryProdIds.has(product.prodId));
+            setAvailableProducts(available);
+
+        } catch (error) {
+            console.error('Error fetching data:', error);
+            setServerMessage({ type: 'error', content: 'Failed to load product data. Please try again.' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const filteredProducts = availableProducts.filter(product =>
+        product.prodName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.prodId.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const handleRequestProduct = (product) => {
+        setModal({
+            isOpen: true,
+            type: 'request_product',
+            data: product,
+            title: 'Request to Add Product',
+            message: `Request to add "${product.prodName}" to your shop's inventory?`,
+            confirmText: 'Send Request',
+            confirmColor: 'bg-blue-600 hover:bg-blue-700'
+        });
+    };
+
+    const handleConfirmRequest = async () => {
+        const { data: product } = modal;
+        setLoading(true);
+        setServerMessage({ type: '', content: '' });
+
+        try {
+            const shopId = localStorage.getItem("selectedShop");
+
+            const token = Cookies.get('token');
+            await axios.post(`${API_URL}/request/${sellerId}`, {
+                prodId: product.prodId,
+                message: `Request to add ${product.prodName} to inventory`,
+                shopId,
+                requestType: 'add_product',
+                initialStock: 0 // Default to 0, can be modified later by admin
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            setServerMessage({ type: 'success', content: `Request to add "${product.prodName}" sent successfully!` });
+            setModal({ isOpen: false, type: '', data: null });
+            // Refresh data to update available products
+            fetchData();
+        } catch (error) {
+            const message = error.response?.data?.message || "An error occurred. Please try again.";
+            setServerMessage({ type: 'error', content: message });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCloseModal = () => {
+        setModal({ isOpen: false, type: '', data: null });
+    };
+
+    const columns = [
+        {
+            key: 'prodId',
+            header: 'Product ID',
+            width: '15%',
+            isSortable: false,
+            render: (product) => <span className="font-mono text-sm">{product.prodId}</span>
+        },
+        {
+            key: 'prodName',
+            header: 'Product Name',
+            width: '25%',
+            isSortable: false,
+            render: (product) => <span className="font-medium">{product.prodName}</span>
+        },
+        {
+            key: 'category',
+            header: 'Category',
+            width: '20%',
+            isSortable: false,
+            render: (product) => <span className="text-gray-600">{product.category}</span>
+        },
+        {
+            key: 'price',
+            header: 'Price',
+            width: '15%',
+            isSortable: false,
+            render: (product) => <span className="font-semibold text-primary">₹{product.price}</span>
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            width: '25%',
+            isSortable: false,
+            render: (product) => (
+                <button
+                    onClick={() => handleRequestProduct(product)}
+                    className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+                    title="Request to Add Product"
+                >
+                    Request
+                </button>
+            )
+        }
+    ];
+
+    return (
+        <div className="p-6 bg-background rounded-xl border border-gray-200">
+            <h2 className="text-xl font-semibold text-text-dark mb-6">Request to Add New Products</h2>
+
+            {serverMessage.content && (
+                <div className={`mb-4 p-3 rounded-lg text-sm ${serverMessage.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    {serverMessage.content}
+                </div>
+            )}
+
+            <div className="space-y-6">
+                <div>
+                    <label className="block text-sm font-medium text-text-dark mb-2">Search Products</label>
+                    <input
+                        type="text"
+                        placeholder="Search by product name, category, or ID..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-light bg-[#FAF7E7]"
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-text-dark mb-2">
+                        Available Products ({filteredProducts.length})
+                    </label>
+                    <div className="bg-gray-50 border rounded-lg">
+                        {loading ? (
+                            <div className="p-8 text-center text-gray-500">Loading products...</div>
+                        ) : filteredProducts.length === 0 ? (
+                            <div className="p-8 text-center text-gray-500">
+                                {availableProducts.length === 0 ? 'All products are already in your inventory' : 'No products found matching your search'}
+                            </div>
+                        ) : (
+                            <Table
+                                data={filteredProducts}
+                                columns={columns}
+                                onSort={() => {}} // No sorting needed for this table
+                                sortConfig={{ key: null, direction: 'ascending' }}
+                            />
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Modal for confirmations */}
+            <Modal
+                isOpen={modal.isOpen}
+                onClose={handleCloseModal}
+                title={modal.title}
+            >
+                <div className="p-4">
+                    <p className="text-gray-700 mb-6">{modal.message}</p>
+
+                    <div className="flex justify-end space-x-3">
+                        <button
+                            onClick={handleCloseModal}
+                            className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleConfirmRequest}
+                            disabled={loading}
+                            className={`px-4 py-2 text-white rounded-lg transition-colors ${modal.confirmColor || 'bg-primary hover:bg-opacity-90'}`}
+                        >
+                            {loading ? 'Sending...' : modal.confirmText || 'Confirm'}
+                        </button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 };
