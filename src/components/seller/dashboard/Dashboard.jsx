@@ -46,8 +46,7 @@ const buildUrl = (path, params = {}) => {
 
 // API service with actual endpoints
 const api = {
-  getDashboardStats: async () => {
-    const shopId = getShopId();
+  getDashboardStats: async (shopId) => {
     const url = buildUrl('/analytics/dashboard', { shopId, includeKiosk: true });
     const response = await fetch(url, {
       method: 'GET',
@@ -58,8 +57,7 @@ const api = {
     return response.json();
   },
   
-  getRevenueTrend: async (days = 7) => {
-    const shopId = getShopId();
+  getRevenueTrend: async (shopId, days = 7) => {
     const url = buildUrl('/analytics/revenue-trend', { days, shopId, includeKiosk: true });
     const response = await fetch(url, {
       method: 'GET',
@@ -70,8 +68,7 @@ const api = {
     return response.json();
   },
   
-  getBestSellingProducts: async (limit = 5) => {
-    const shopId = getShopId();
+  getBestSellingProducts: async (shopId, limit = 5) => {
     const url = buildUrl('/analytics/products/best-selling', { limit, shopId, includeKiosk: true });
     const response = await fetch(url, {
       method: 'GET',
@@ -82,8 +79,7 @@ const api = {
     return response.json();
   },
   
-  getLeastSellingProducts: async (limit = 5) => {
-    const shopId = getShopId();
+  getLeastSellingProducts: async (shopId, limit = 5) => {
     const url = buildUrl('/analytics/products/least-selling', { limit, shopId, includeKiosk: true });
     const response = await fetch(url, {
       method: 'GET',
@@ -94,8 +90,7 @@ const api = {
     return response.json();
   },
   
-  getOperationalFunnel: async () => {
-    const shopId = getShopId();
+  getOperationalFunnel: async (shopId) => {
     const url = buildUrl('/analytics/operational-funnel', { shopId, includeKiosk: true });
     const response = await fetch(url, {
       method: 'GET',
@@ -106,8 +101,7 @@ const api = {
     return response.json();
   },
 
-  getCategoryPerformance: async () => {
-    const shopId = getShopId();
+  getCategoryPerformance: async (shopId) => {
     const url = buildUrl('/analytics/products/category-performance', { shopId, includeKiosk: true });
     const response = await fetch(url, {
       method: 'GET',
@@ -416,7 +410,7 @@ const OperationalFunnel = ({ data, loading }) => {
 };
 
 // Main Analytics Dashboard Component
-const Dashboard = () => {
+const Dashboard = ({ shopId: propShopId }) => {
   const [dashboardStats, setDashboardStats] = useState(null);
   const [revenueTrend, setRevenueTrend] = useState([]);
   const [bestSellingProducts, setBestSellingProducts] = useState([]);
@@ -427,11 +421,21 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const getShopId = () => {
+    return propShopId || localStorage.getItem('selectedShop') || null;
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
+        
+        const currentShopId = getShopId();
+        if (!currentShopId) {
+          setError('No shop selected');
+          return;
+        }
         
         // Fetch all analytics data
         const [
@@ -443,12 +447,12 @@ const Dashboard = () => {
           categoryRes, 
           userRes
         ] = await Promise.all([
-          api.getDashboardStats(),
-          api.getRevenueTrend(),
-          api.getBestSellingProducts(),
-          api.getLeastSellingProducts(),
-          api.getOperationalFunnel(),
-          api.getCategoryPerformance(),
+          api.getDashboardStats(currentShopId),
+          api.getRevenueTrend(currentShopId),
+          api.getBestSellingProducts(currentShopId),
+          api.getLeastSellingProducts(currentShopId),
+          api.getOperationalFunnel(currentShopId),
+          api.getCategoryPerformance(currentShopId),
           api.getUserAnalytics()
         ]);
 
@@ -470,7 +474,7 @@ const Dashboard = () => {
     };
 
     fetchData();
-  }, []);
+  }, [propShopId]);
 
   if (error) {
     return (

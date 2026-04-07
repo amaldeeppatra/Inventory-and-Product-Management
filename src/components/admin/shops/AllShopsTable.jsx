@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FiEdit, FiTrash2 } from 'react-icons/fi';
+import { FiEdit, FiTrash2, FiEye, FiDownload } from 'react-icons/fi';
 import Modal from '../../Modal';
 import EditShopInventory from './EditShopInventory';
+import Dashboard from '../../seller/dashboard/Dashboard';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -12,6 +13,7 @@ const AllShopsTable = () => {
     const [error, setError] = useState(null);
     const [modal, setModal] = useState({ isOpen: false, type: '', shop: null });
     const [editingInventory, setEditingInventory] = useState(null);
+    const [viewingDashboard, setViewingDashboard] = useState(null);
 
     useEffect(() => {
         fetchShops();
@@ -106,6 +108,189 @@ const AllShopsTable = () => {
         setEditingInventory(null);
     };
 
+    const handleViewDashboard = (shop) => {
+        setViewingDashboard(shop);
+    };
+
+    const handleCloseDashboard = () => {
+        setViewingDashboard(null);
+    };
+
+    const handleDownloadReport = async (shop) => {
+        try {
+            // Fetch all dashboard data for the shop
+            const [statsRes, trendRes, bestRes, leastRes, funnelRes, categoryRes] = await Promise.all([
+                axios.get(`${API_URL}/analytics/dashboard?shopId=${shop._id}&includeKiosk=true`, {
+                    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                }),
+                axios.get(`${API_URL}/analytics/revenue-trend?shopId=${shop._id}&includeKiosk=true`, {
+                    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                }),
+                axios.get(`${API_URL}/analytics/products/best-selling?shopId=${shop._id}&includeKiosk=true`, {
+                    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                }),
+                axios.get(`${API_URL}/analytics/products/least-selling?shopId=${shop._id}&includeKiosk=true`, {
+                    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                }),
+                axios.get(`${API_URL}/analytics/operational-funnel?shopId=${shop._id}&includeKiosk=true`, {
+                    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                }),
+                axios.get(`${API_URL}/analytics/products/category-performance?shopId=${shop._id}&includeKiosk=true`, {
+                    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                })
+            ]);
+
+            // Generate report content
+            const reportData = {
+                shopName: shop.name,
+                generatedAt: new Date().toLocaleString(),
+                stats: statsRes.data.data,
+                revenueTrend: trendRes.data.data,
+                bestSelling: bestRes.data.data,
+                leastSelling: leastRes.data.data,
+                operational: funnelRes.data.data,
+                categories: categoryRes.data.data
+            };
+
+            // Create a simple HTML report
+            const reportHTML = generateReportHTML(reportData);
+            
+            // Create a blob and download
+            const blob = new Blob([reportHTML], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${shop.name}_Revenue_Report_${new Date().toISOString().split('T')[0]}.html`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+        } catch (error) {
+            console.error('Error generating report:', error);
+            alert('Failed to generate report. Please try again.');
+        }
+    };
+
+    const generateReportHTML = (data) => {
+        return `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Revenue Report - ${data.shopName}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1, h2 { color: #333; }
+        .section { margin-bottom: 30px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+        .stat-card { border: 1px solid #ddd; padding: 15px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Revenue Report - ${data.shopName}</h1>
+    <p><strong>Generated on:</strong> ${data.generatedAt}</p>
+    
+    <div class="section">
+        <h2>Key Statistics</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Today's Revenue</h3>
+                <p>₹${data.stats.todayRevenue?.toLocaleString() || '0'}</p>
+            </div>
+            <div class="stat-card">
+                <h3>Total Sales</h3>
+                <p>₹${data.stats.totalSales?.toLocaleString() || '0'}</p>
+            </div>
+            <div class="stat-card">
+                <h3>Total Orders</h3>
+                <p>${data.stats.totalOrders?.toLocaleString() || '0'}</p>
+            </div>
+            <div class="stat-card">
+                <h3>Average Order Value</h3>
+                <p>₹${data.stats.avgOrderValue?.toFixed(2) || '0.00'}</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="section">
+        <h2>Revenue Trend (Last 7 Days)</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Revenue</th>
+                    <th>Orders</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${data.revenueTrend.map(day => `
+                    <tr>
+                        <td>${new Date(day.date).toLocaleDateString()}</td>
+                        <td>₹${day.revenue.toLocaleString()}</td>
+                        <td>${day.orders}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="section">
+        <h2>Best Selling Products</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Quantity Sold</th>
+                    <th>Revenue</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${data.bestSelling.slice(0, 5).map(product => `
+                    <tr>
+                        <td>${product.productName}</td>
+                        <td>${product.totalQuantity}</td>
+                        <td>₹${product.totalRevenue?.toLocaleString() || '0'}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="section">
+        <h2>Category Performance</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Revenue</th>
+                    <th>Quantity</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${data.categories.map(cat => `
+                    <tr>
+                        <td>${cat.category}</td>
+                        <td>₹${cat.totalRevenue?.toLocaleString() || '0'}</td>
+                        <td>${cat.totalQuantity}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="section">
+        <h2>Operational Summary</h2>
+        <p>Active Orders: ${data.operational.totalActiveOrders || 0}</p>
+        <p>Today's New Orders: ${data.operational.today?.newOrders || 0}</p>
+        <p>Today's Completed Orders: ${data.operational.today?.completedOrders || 0}</p>
+    </div>
+</body>
+</html>`;
+    };
+
     const handleCloseModal = () => {
         setModal({ isOpen: false, type: '', shop: null });
     };
@@ -141,6 +326,19 @@ const AllShopsTable = () => {
                     shopName={editingInventory.name}
                     onClose={handleCloseEditInventory}
                 />
+            ) : viewingDashboard ? (
+                <div>
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-xl font-semibold text-text-dark">Dashboard - {viewingDashboard.name}</h2>
+                        <button
+                            onClick={handleCloseDashboard}
+                            className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                        >
+                            Close Dashboard
+                        </button>
+                    </div>
+                    <Dashboard shopId={viewingDashboard._id} />
+                </div>
             ) : (
                 <>
                     <h2 className="text-xl font-semibold text-text-dark mb-6">All Shops</h2>
@@ -173,8 +371,22 @@ const AllShopsTable = () => {
                                             <td className="px-4 py-2 whitespace-nowrap text-sm font-medium">
                                                 <div className="flex space-x-2">
                                                     <button
-                                                        onClick={() => handleEditInventory(shop)}
+                                                        onClick={() => handleViewDashboard(shop)}
                                                         className="text-blue-600 hover:text-blue-900"
+                                                        title="View Dashboard"
+                                                    >
+                                                        <FiEye className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDownloadReport(shop)}
+                                                        className="text-green-600 hover:text-green-900"
+                                                        title="Download Revenue Report"
+                                                    >
+                                                        <FiDownload className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleEditInventory(shop)}
+                                                        className="text-indigo-600 hover:text-indigo-900"
                                                         title="Edit Inventory"
                                                     >
                                                         <FiEdit className="w-4 h-4" />
