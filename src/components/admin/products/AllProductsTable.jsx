@@ -72,7 +72,7 @@ const AllProductsTable = () => {
         delete payload.prodId; 
         
         try {
-            await axios.patch(`${API_URL}/product/${productId}`, payload);
+            await axios.patch(`${API_URL}/product/update/${productId}`, payload);
             setEditingRowId(null);
             fetchProducts();
         } catch (err) {
